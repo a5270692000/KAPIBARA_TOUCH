@@ -1,19 +1,28 @@
 // =====================
-// Config
+// New Game Mode: 30s score attack
 // =====================
-const TARGET_MAX = 10;
-let SQUARE_SIZE = 140;           // ✅ will be recalculated by screen size
-const WRONG_FLASH_MS = 150;
 
-const RANK_KEY = "number_touch_rankings_v1";
+// ----- Config -----
+const GAME_DURATION_SEC = 30;   // countdown from 30 -> 0
+let SQUARE_SIZE = 140;          // responsive size
+const WRONG_FLASH_MS = 120;
+
+const SCORE_GOOD = 50;          // KAPIBARA.png
+const SCORE_POOR = -30;         // KAPIBARA_poor.png
+
+// 7:3 ratio
+const GOOD_WEIGHT = 7;
+const POOR_WEIGHT = 3;
+
+// Local ranking (Top10) for score mode
+const RANK_KEY = "kapibara_score_attack_rankings_v1";
 const RANK_KEEP_TOP = 10;
 
-// ✅ Image path (MAKE SURE case matches your repo filename)
-const IMG_PATH = "picture/KAPIBARA.png";
+// Images
+const IMG_GOOD = "picture/KAPIBARA.png";
+const IMG_POOR = "picture/KAPIBARA_poor.png";
 
-// =====================
-// DOM
-// =====================
+// ----- DOM -----
 const gameArea = document.getElementById("gameArea");
 const startScreen = document.getElementById("startScreen");
 const resultScreen = document.getElementById("resultScreen");
@@ -23,7 +32,9 @@ const btnRetry = document.getElementById("btnRetry");
 const btnExit = document.getElementById("btnExit");
 
 const timerEl = document.getElementById("timer");
-const progressEl = document.getElementById("progress");
+const progressEl = document.getElementById("progress"); // left-top (we'll keep but not required)
+
+const scoreEl = document.getElementById("score"); // ✅ added in index.html
 
 const targetEl = document.getElementById("target");
 const targetImg = document.getElementById("targetImg");
@@ -32,32 +43,52 @@ const fallbackNum = document.getElementById("fallbackNum");
 const finalTimeEl = document.getElementById("finalTime");
 const rankListEl = document.getElementById("rankList");
 
-// =====================
-// State
-// =====================
+// ----- State -----
 let state = "START"; // START | PLAYING | RESULT
-let currentTarget = 1;
-let startTimeMs = 0;
 let rafId = 0;
-let elapsedSec = 0;
-let rankings = loadRankings();
 
-// preload image
-let imgOk = false;
-targetImg.src = IMG_PATH;
-targetImg.onload = () => { imgOk = true; };
-targetImg.onerror = () => { imgOk = false; };
+let startTimeMs = 0;
+let remainingSec = GAME_DURATION_SEC;
+
+let score = 0;
+
+// current target type: "GOOD" or "POOR"
+let currentType = "GOOD";
+
+// preload images
+let goodOk = false;
+let poorOk = false;
+const goodImg = new Image();
+const poorImg = new Image();
+goodImg.src = IMG_GOOD;
+poorImg.src = IMG_POOR;
+goodImg.onload = () => { goodOk = true; };
+goodImg.onerror = () => { goodOk = false; };
+poorImg.onload = () => { poorOk = true; };
+poorImg.onerror = () => { poorOk = false; };
+
+// rankings (score desc)
+let rankings = loadRankings();
 
 // =====================
 // Helpers
 // =====================
-function formatTime(seconds) {
-  if (seconds >= 60) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds - m * 60;
-    return String(m).padStart(2, "0") + ":" + s.toFixed(2).padStart(5, "0");
-  }
-  return seconds.toFixed(2) + "s";
+function areaRect() {
+  return gameArea.getBoundingClientRect();
+}
+
+// responsive square size
+function updateSquareSize() {
+  const r = areaRect();
+  const base = r.width;
+  const sq = Math.max(72, Math.min(140, Math.round(base * 0.22)));
+  SQUARE_SIZE = sq;
+  gameArea.style.setProperty("--sq", `${SQUARE_SIZE}px`);
+}
+
+function formatCountdown(sec) {
+  // show like 30.0s
+  return `${sec.toFixed(1)}s`;
 }
 
 function loadRankings() {
@@ -68,7 +99,7 @@ function loadRankings() {
     if (!Array.isArray(arr)) return [];
     return arr
       .filter(n => typeof n === "number" && isFinite(n))
-      .sort((a,b)=>a-b)
+      .sort((a,b) => b - a) // score higher first
       .slice(0, RANK_KEEP_TOP);
   } catch {
     return [];
@@ -81,38 +112,19 @@ function saveRankings() {
   } catch {}
 }
 
-function insertRanking(t) {
-  rankings.push(t);
-  rankings.sort((a,b)=>a-b);
+function insertRanking(s) {
+  rankings.push(s);
+  rankings.sort((a,b) => b - a);
   rankings = rankings.slice(0, RANK_KEEP_TOP);
   saveRankings();
 }
 
-function areaRect() {
-  return gameArea.getBoundingClientRect();
-}
-
-// ✅ Recalculate square size based on current gameArea width
-function updateSquareSize() {
-  const r = areaRect();
-
-  // Square takes about 22% of width; clamp between 72 and 140
-  const base = r.width;
-  const sq = Math.max(72, Math.min(140, Math.round(base * 0.22)));
-
-  SQUARE_SIZE = sq;
-
-  // Sync to CSS variable
-  gameArea.style.setProperty("--sq", `${SQUARE_SIZE}px`);
-}
-
-// random position inside the square area, keeping within bounds
 function randomPos() {
   const r = areaRect();
   const half = SQUARE_SIZE / 2;
 
-  // ✅ Leave space at top so target doesn't block Timer/Progress
-  const SAFE_TOP = 56;
+  // keep clear of top HUD
+  const SAFE_TOP = 64;
 
   const minX = half;
   const maxX = r.width - half;
@@ -125,20 +137,53 @@ function randomPos() {
   return { x: cx - half, y: cy - half };
 }
 
-function placeTargetRandomly() {
+function pickTypeByWeight() {
+  const total = GOOD_WEIGHT + POOR_WEIGHT;
+  const x = Math.random() * total;
+  return (x < GOOD_WEIGHT) ? "GOOD" : "POOR";
+}
+
+function applyTargetVisual() {
+  // set image based on currentType
+  if (currentType === "GOOD") {
+    if (goodOk) {
+      targetImg.src = IMG_GOOD;
+      targetImg.classList.remove("hidden");
+      fallbackNum.classList.add("hidden");
+    } else {
+      targetImg.classList.add("hidden");
+      fallbackNum.classList.remove("hidden");
+      fallbackNum.textContent = "+50";
+    }
+  } else {
+    if (poorOk) {
+      targetImg.src = IMG_POOR;
+      targetImg.classList.remove("hidden");
+      fallbackNum.classList.add("hidden");
+    } else {
+      targetImg.classList.add("hidden");
+      fallbackNum.classList.remove("hidden");
+      fallbackNum.textContent = "-30";
+    }
+  }
+}
+
+function spawnNewTarget() {
+  currentType = pickTypeByWeight();
   const { x, y } = randomPos();
   targetEl.style.left = `${x}px`;
   targetEl.style.top = `${y}px`;
+  applyTargetVisual();
+}
 
-  // show image if available, else show number
-  if (imgOk) {
-    targetImg.classList.remove("hidden");
-    fallbackNum.classList.add("hidden");
-  } else {
-    targetImg.classList.add("hidden");
-    fallbackNum.classList.remove("hidden");
-    fallbackNum.textContent = String(currentTarget);
-  }
+function setUIStart() {
+  startScreen.classList.remove("hidden");
+  resultScreen.classList.add("hidden");
+  targetEl.classList.add("hidden");
+
+  progressEl.textContent = ""; // not used now
+  if (scoreEl) scoreEl.textContent = "Score: 0";
+  timerEl.textContent = `Time: ${formatCountdown(GAME_DURATION_SEC)}`;
 }
 
 function setUIPlaying() {
@@ -147,36 +192,46 @@ function setUIPlaying() {
   targetEl.classList.remove("hidden");
 }
 
-function setUIStart() {
-  startScreen.classList.remove("hidden");
-  resultScreen.classList.add("hidden");
-  targetEl.classList.add("hidden");
-  timerEl.textContent = "Time: 0.00s";
-  progressEl.textContent = "";
-}
-
-function setUIResult(finalSec) {
+function setUIResult(finalScore) {
   startScreen.classList.add("hidden");
   resultScreen.classList.remove("hidden");
   targetEl.classList.add("hidden");
 
-  finalTimeEl.textContent = `完成：${formatTime(finalSec)}`;
+  finalTimeEl.textContent = `本回合得分：${finalScore}`;
 
   rankListEl.innerHTML = "";
-  rankings.slice(0, RANK_KEEP_TOP).forEach((t) => {
+  rankings.slice(0, RANK_KEEP_TOP).forEach((s) => {
     const li = document.createElement("li");
-    li.textContent = formatTime(t);
+    li.textContent = `${s} 分`;
     rankListEl.appendChild(li);
   });
 }
 
-// timer loop
+function wrongFlash() {
+  targetEl.classList.add("wrong");
+  if (navigator.vibrate) navigator.vibrate(25);
+  setTimeout(() => targetEl.classList.remove("wrong"), WRONG_FLASH_MS);
+}
+
+// =====================
+// Timer loop
+// =====================
 function tick() {
   if (state !== "PLAYING") return;
+
   const now = performance.now();
-  elapsedSec = (now - startTimeMs) / 1000;
-  timerEl.textContent = `Time: ${formatTime(elapsedSec)}`;
-  progressEl.textContent = `${currentTarget}/${TARGET_MAX}`;
+  const elapsed = (now - startTimeMs) / 1000;
+  remainingSec = Math.max(0, GAME_DURATION_SEC - elapsed);
+
+  timerEl.textContent = `Time: ${formatCountdown(remainingSec)}`;
+  if (scoreEl) scoreEl.textContent = `Score: ${score}`;
+  progressEl.textContent = ""; // keep blank or show hint if you want
+
+  if (remainingSec <= 0) {
+    finishGame();
+    return;
+  }
+
   rafId = requestAnimationFrame(tick);
 }
 
@@ -184,33 +239,28 @@ function tick() {
 // Game flow
 // =====================
 function startGame() {
-  updateSquareSize(); // ✅ ensure correct size before placing
+  updateSquareSize();
 
   state = "PLAYING";
-  currentTarget = 1;
-  elapsedSec = 0;
+  score = 0;
+  remainingSec = GAME_DURATION_SEC;
 
   startTimeMs = performance.now();
   setUIPlaying();
-  placeTargetRandomly();
+  spawnNewTarget();
 
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
 }
 
 function finishGame() {
+  if (state !== "PLAYING") return;
+
   state = "RESULT";
   cancelAnimationFrame(rafId);
 
-  const finalSec = elapsedSec;
-  insertRanking(finalSec);
-  setUIResult(finalSec);
-}
-
-function wrongFlash() {
-  targetEl.classList.add("wrong");
-  if (navigator.vibrate) navigator.vibrate(30); // ✅ mobile feedback
-  setTimeout(() => targetEl.classList.remove("wrong"), WRONG_FLASH_MS);
+  insertRanking(score);
+  setUIResult(score);
 }
 
 // =====================
@@ -220,13 +270,12 @@ btnStart.addEventListener("click", startGame);
 btnRetry.addEventListener("click", startGame);
 
 btnExit.addEventListener("click", () => {
-  // "exit" = back to start screen
   state = "START";
   cancelAnimationFrame(rafId);
   setUIStart();
 });
 
-// Clicking anywhere: if click hits target, advance; else wrong flash
+// click/tap
 gameArea.addEventListener("pointerdown", (e) => {
   if (state !== "PLAYING") return;
 
@@ -236,18 +285,19 @@ gameArea.addEventListener("pointerdown", (e) => {
     e.clientY >= tRect.top  && e.clientY <= tRect.bottom;
 
   if (hit) {
-    if (currentTarget < TARGET_MAX) {
-      currentTarget += 1;
-      placeTargetRandomly();
-    } else {
-      finishGame();
-    }
+    // scoring
+    if (currentType === "GOOD") score += SCORE_GOOD;
+    else score += SCORE_POOR;
+
+    // spawn next immediately
+    spawnNewTarget();
   } else {
+    // optional: flash on miss
     wrongFlash();
   }
 });
 
-// ESC to leave back to start
+// ESC
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     state = "START";
@@ -256,12 +306,12 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-// ✅ Recalculate square size on resize/orientation change
+// resize/orientation
 window.addEventListener("resize", () => {
   updateSquareSize();
-  if (state === "PLAYING") placeTargetRandomly();
+  if (state === "PLAYING") spawnNewTarget();
 });
 
-// initial UI
+// init
 updateSquareSize();
 setUIStart();
