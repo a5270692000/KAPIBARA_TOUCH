@@ -3,7 +3,6 @@
   --ink:#111;
   --muted:#666;
   --border:#3c3c3c;
-  --panel:#ffffff;
   --panel2:#f3f3f3;
   --danger:#ff7878;
 }
@@ -56,6 +55,13 @@ body{
 
 .muted{
   color:var(--muted);
+  font-size:14px;
+}
+
+/* ✅ 開始畫面/結算畫面時，隱藏左上角即時提示 */
+#startScreen:not(.hidden) ~ * #progress,
+#resultScreen:not(.hidden) ~ * #progress{
+  visibility:hidden;
 }
 
 /* =========================
@@ -93,6 +99,11 @@ body{
   display:none !important;
 }
 
+.hint{
+  font-size:13px;
+  color:var(--muted);
+}
+
 /* =========================
    Buttons
    ========================= */
@@ -115,31 +126,32 @@ body{
 }
 
 /* =========================
-   Game Description (Start)
+   Game Description (Center)
    ========================= */
-.game-desc{
-  max-width:420px;
+.game-desc-center{
+  max-width:520px;
+  width: min(520px, 90%);
   background:rgba(255,255,255,0.95);
   border:2px solid #ddd;
-  border-radius:12px;
-  padding:12px 16px;
-  font-size:14px;
-  line-height:1.5;
+  border-radius:14px;
+  padding:16px 20px;
+  text-align:left;
 }
 
 .game-desc-title{
-  font-weight:800;
+  font-weight:900;
   text-align:center;
   margin-bottom:6px;
 }
 
-.game-desc ul{
-  padding-left:18px;
+.game-desc-center ul{
+  padding-left:20px;
   margin:0;
 }
 
-.game-desc li{
-  margin-bottom:4px;
+.game-desc-center li{
+  margin-bottom:6px;
+  line-height:1.5;
 }
 
 /* =========================
@@ -204,20 +216,15 @@ body{
    Mobile tweaks
    ========================= */
 @media (max-width:480px){
-  .game-desc{
-    font-size:13px;
-    padding:10px 12px;
-  }
+  .score{ font-size:16px; }
+  .timer{ font-size:14px; }
 
   .final{
     font-size:clamp(20px, 5vw, 24px);
   }
 
-  .score{
-    font-size:16px;
-  }
-
-  .timer{
-    font-size:14px;
+  .game-desc-center{
+    padding:12px 14px;
+    font-size:13px;
   }
 }

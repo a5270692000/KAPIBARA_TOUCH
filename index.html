@@ -12,6 +12,7 @@
 
   <!-- Top HUD -->
   <div class="topbar">
+    <!-- ✅ 遊戲中才會顯示；開始/結算時會被 CSS 隱藏 -->
     <div id="progress" class="muted"></div>
 
     <div class="hud-right">
@@ -25,25 +26,27 @@
 
     <!-- Target -->
     <div id="target" class="target hidden">
-      <img id="targetImg" class="hidden" />
+      <img id="targetImg" class="hidden" alt="target" />
       <div id="fallbackNum" class="fallback-num hidden"></div>
     </div>
 
     <!-- Start Screen -->
     <div id="startScreen" class="overlay">
 
-      <!-- Game Description -->
-      <div class="game-desc">
+      <!-- ✅ 中央遊戲說明（開始前顯示） -->
+      <div class="game-desc game-desc-center">
         <div class="game-desc-title">🎮 遊戲說明</div>
         <ul>
-          <li>🟢 點到<strong>拿元寶的水豚</strong>可加分（Combo：50 → 70 → 100）</li>
-          <li>🟢 點空白會中斷 Combo</li>
-          <li>🔴 點到<strong>空錢包的水豚</strong>會扣 30 分</li>
+          <li>🟢 點<strong>拿元寶水豚</strong>可加分（Combo：50 → 70 → 100）</li>
+          <li>🟢 點空白可跳過，但會中斷 Combo</li>
+          <li>🔴 點<strong>空錢包水豚</strong>會扣 30 分</li>
           <li>⏱️ 30 秒內挑戰最高分</li>
         </ul>
       </div>
 
-      <button id="btnStart" class="btn">開始遊戲</button>
+      <button id="btnStart" class="btn">開始</button>
+
+      <div class="hint">( ESC 可離開；手機 / 平板可直接觸控 )</div>
     </div>
 
     <!-- Result Screen -->
