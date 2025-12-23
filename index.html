@@ -1,47 +1,67 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Number Touch Game</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>瓜瓜年終大挑戰</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <!-- Top bar -->
-    <div class="topbar">
-      <div id="progress" class="muted"></div>
-        <div id="score" class="score">Score: 0</div>
-        <div id="timer" class="timer">Time: 30.0s</div>
-    </div>
 
-    <!-- Canvas area -->
-    <div id="gameArea" class="game-area">
-      <!-- Start screen -->
-      <div id="startScreen" class="overlay">
-        <button id="btnStart" class="btn">開始</button>
-        <div class="hint muted">（ESC 可離開；手機/平板可直接觸控）</div>
-      </div>
+<div id="app">
 
-      <!-- Result screen -->
-      <div id="resultScreen" class="overlay hidden">
-        <div id="finalTime" class="final"></div>
-        <div class="rank-title">排行榜（Top 10｜本機）</div>
-        <ol id="rankList" class="rank-list"></ol>
-        <div class="result-actions">
-          <button id="btnRetry" class="btn">再玩一次</button>
-          <button id="btnExit" class="btn btn-secondary">離開</button>
-        </div>
-      </div>
+  <!-- Top HUD -->
+  <div class="topbar">
+    <div id="progress" class="muted"></div>
 
-      <!-- The target square -->
-      <div id="target" class="target hidden">
-        <img id="targetImg" alt="target" />
-        <div id="fallbackNum" class="fallback-num hidden"></div>
-      </div>
+    <div class="hud-right">
+      <div id="score" class="score">Score: 0</div>
+      <div id="timer" class="timer">Time: 30.0s</div>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Game Area -->
+  <div id="gameArea" class="game-area">
+
+    <!-- Target -->
+    <div id="target" class="target hidden">
+      <img id="targetImg" class="hidden" />
+      <div id="fallbackNum" class="fallback-num hidden"></div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="overlay">
+
+      <!-- Game Description -->
+      <div class="game-desc">
+        <div class="game-desc-title">🎮 遊戲說明</div>
+        <ul>
+          <li>🟢 點到<strong>拿元寶的水豚</strong>可加分（Combo：50 → 70 → 100）</li>
+          <li>🟢 點空白會中斷 Combo</li>
+          <li>🔴 點到<strong>空錢包的水豚</strong>會扣 30 分</li>
+          <li>⏱️ 30 秒內挑戰最高分</li>
+        </ul>
+      </div>
+
+      <button id="btnStart" class="btn">開始遊戲</button>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="resultScreen" class="overlay hidden">
+      <div id="finalTime" class="final">結果</div>
+
+      <div class="rank-title">排行榜</div>
+      <ol id="rankList" class="rank-list"></ol>
+
+      <div class="result-actions">
+        <button id="btnRetry" class="btn">再玩一次</button>
+        <button id="btnExit" class="btn btn-secondary">離開</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>

@@ -23,19 +23,34 @@ body{
 
 #app{
   width:100%;
-  max-width: 1100px;
-  padding: 18px;
+  max-width:1100px;
+  padding:16px;
 }
 
+/* =========================
+   Top HUD
+   ========================= */
 .topbar{
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  margin-bottom:12px;
+  align-items:flex-start;
+  margin-bottom:10px;
+}
+
+.hud-right{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+}
+
+.score{
+  font-size:18px;
+  font-weight:700;
 }
 
 .timer{
-  font-size:20px;
+  font-size:16px;
   font-weight:600;
 }
 
@@ -43,20 +58,26 @@ body{
   color:var(--muted);
 }
 
+/* =========================
+   Game Area
+   ========================= */
 .game-area{
   position:relative;
   width:100%;
-  aspect-ratio: 1 / 1;      /* 正方形遊戲區 */
-  max-height: 1000px;
-  background: var(--bg);
-  border: 2px solid #e8e8e8;
-  border-radius: 18px;
+  aspect-ratio:1 / 1;
+  max-height:1000px;
+  background:var(--bg);
+  border:2px solid #e8e8e8;
+  border-radius:18px;
   overflow:hidden;
 
-  /* ✅ 手機自適應方塊大小（JS 會更新這個變數） */
-  --sq: 140px;
+  /* square size controlled by JS */
+  --sq:140px;
 }
 
+/* =========================
+   Overlay (Start / Result)
+   ========================= */
 .overlay{
   position:absolute;
   inset:0;
@@ -65,94 +86,138 @@ body{
   align-items:center;
   justify-content:center;
   gap:16px;
-  background: rgba(250,250,250,0.92);
+  background:rgba(250,250,250,0.92);
 }
 
 .hidden{
   display:none !important;
 }
 
+/* =========================
+   Buttons
+   ========================= */
 .btn{
-  border: 3px solid var(--border);
-  background: var(--panel2);
-  padding: 14px 26px;
-  border-radius: 16px;
-  font-size: 22px;
-  font-weight: 700;
+  border:3px solid var(--border);
+  background:var(--panel2);
+  padding:14px 26px;
+  border-radius:16px;
+  font-size:20px;
+  font-weight:800;
   cursor:pointer;
 }
 
 .btn:hover{
-  filter: brightness(0.98);
-}
-
-.btn:active{
-  transform: scale(0.99);
+  filter:brightness(0.97);
 }
 
 .btn-secondary{
-  background: #ececec;
-}
-
-.hint{
-  font-size:14px;
+  background:#e5e5e5;
 }
 
 /* =========================
-   ✅ Mobile Friendly Target
+   Game Description (Start)
    ========================= */
+.game-desc{
+  max-width:420px;
+  background:rgba(255,255,255,0.95);
+  border:2px solid #ddd;
+  border-radius:12px;
+  padding:12px 16px;
+  font-size:14px;
+  line-height:1.5;
+}
 
+.game-desc-title{
+  font-weight:800;
+  text-align:center;
+  margin-bottom:6px;
+}
+
+.game-desc ul{
+  padding-left:18px;
+  margin:0;
+}
+
+.game-desc li{
+  margin-bottom:4px;
+}
+
+/* =========================
+   Target
+   ========================= */
 .target{
   position:absolute;
-  width: var(--sq);
-  height: var(--sq);
-  border-radius: 14px;
-  background: #ebebeb;
-  border: 3px solid var(--border);
+  width:var(--sq);
+  height:var(--sq);
+  border-radius:14px;
+  background:#ebebeb;
+  border:3px solid var(--border);
   display:flex;
   align-items:center;
   justify-content:center;
   user-select:none;
-  touch-action: manipulation;
+  touch-action:manipulation;
 }
 
 .target.wrong{
-  background: var(--danger);
+  background:var(--danger);
 }
 
 .target img{
-  width: calc(var(--sq) - 36px);
-  height: calc(var(--sq) - 36px);
-  object-fit: contain;
+  width:calc(var(--sq) - 36px);
+  height:calc(var(--sq) - 36px);
+  object-fit:contain;
   pointer-events:none;
 }
 
 .fallback-num{
-  font-size: calc(var(--sq) * 0.48);
-  font-weight: 800;
-  pointer-events:none;
+  font-size:calc(var(--sq) * 0.48);
+  font-weight:800;
 }
 
+/* =========================
+   Result
+   ========================= */
 .final{
-  font-size: 40px;
-  font-weight: 900;
+  font-size:40px;
+  font-weight:900;
 }
 
 .rank-title{
   font-size:18px;
   font-weight:700;
-  color:#333;
 }
 
 .rank-list{
-  margin: 0;
-  padding-left: 28px;
-  max-height: 280px;
+  margin:0;
+  padding-left:24px;
+  max-height:240px;
   overflow:auto;
 }
 
 .result-actions{
   display:flex;
   gap:14px;
-  margin-top: 8px;
+}
+
+/* =========================
+   Mobile tweaks
+   ========================= */
+@media (max-width:480px){
+  .game-desc{
+    font-size:13px;
+    padding:10px 12px;
+  }
+
+  .final{
+    font-size:clamp(20px, 5vw, 24px);
+  }
+
+  .score{
+    font-size:16px;
+  }
+
+  .timer{
+    font-size:14px;
+  }
 }
