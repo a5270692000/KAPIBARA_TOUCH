@@ -1,24 +1,22 @@
 // =====================
-// Game Mode: 30s score attack + combo system
+// Game Mode: 30s score attack + combo system (GOOD can click blank to skip)
 // =====================
 
 // ----- Config -----
 const GAME_DURATION_SEC = 30;
 let SQUARE_SIZE = 140;
-const WRONG_FLASH_MS = 120;
 
-// Score rules
 const SCORE_POOR_PENALTY = -30;
 
-// Combo weights
+// 7:3 ratio
 const GOOD_WEIGHT = 7;
 const POOR_WEIGHT = 3;
 
 // Ranking
-const RANK_KEY = "kapibara_score_attack_rankings_v3";
+const RANK_KEY = "kapibara_score_attack_rankings_v4";
 const RANK_KEEP_TOP = 10;
 
-// Images
+// Images (case-sensitive on Netlify)
 const IMG_GOOD = "picture/KAPIBARA.png";
 const IMG_POOR = "picture/KAPIBARA_poor.png";
 
@@ -43,29 +41,31 @@ const finalTimeEl = document.getElementById("finalTime");
 const rankListEl = document.getElementById("rankList");
 
 // ----- State -----
-let state = "START";
+let state = "START"; // START | PLAYING | RESULT
 let rafId = 0;
 
 let startTimeMs = 0;
 let remainingSec = GAME_DURATION_SEC;
 
 let score = 0;
-let comboCount = 0;        // ✅ Combo state
-let currentType = "GOOD";
+let comboCount = 0;
+let currentType = "GOOD"; // GOOD | POOR
 
 // ----- Preload Images -----
 let goodOk = false;
 let poorOk = false;
+
 const goodImg = new Image();
 const poorImg = new Image();
 
 goodImg.src = IMG_GOOD;
 poorImg.src = IMG_POOR;
 
-goodImg.onload = () => goodOk = true;
-goodImg.onerror = () => goodOk = false;
-poorImg.onload = () => poorOk = true;
-poorImg.onerror = () => poorOk = false;
+goodImg.onload = () => { goodOk = true; };
+goodImg.onerror = () => { goodOk = false; };
+
+poorImg.onload = () => { poorOk = true; };
+poorImg.onerror = () => { poorOk = false; };
 
 // ----- Ranking -----
 let rankings = loadRankings();
@@ -88,7 +88,7 @@ function formatCountdown(sec) {
   return `${sec.toFixed(1)}s`;
 }
 
-// Combo score rule
+// Combo score rule: +50 -> +70 -> +100 (cap 100)
 function getComboScore(combo) {
   if (combo >= 3) return 100;
   if (combo === 2) return 70;
@@ -99,9 +99,11 @@ function loadRankings() {
   try {
     const raw = localStorage.getItem(RANK_KEY);
     if (!raw) return [];
-    return JSON.parse(raw)
-      .filter(n => typeof n === "number")
-      .sort((a, b) => b - a)
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(n => typeof n === "number" && isFinite(n))
+      .sort((a,b) => b - a)
       .slice(0, RANK_KEEP_TOP);
   } catch {
     return [];
@@ -109,29 +111,30 @@ function loadRankings() {
 }
 
 function saveRankings() {
-  localStorage.setItem(RANK_KEY, JSON.stringify(rankings));
+  try {
+    localStorage.setItem(RANK_KEY, JSON.stringify(rankings));
+  } catch {}
 }
 
 function insertRanking(s) {
   rankings.push(s);
-  rankings.sort((a, b) => b - a);
+  rankings.sort((a,b) => b - a);
   rankings = rankings.slice(0, RANK_KEEP_TOP);
   saveRankings();
 }
 
 function randomPos() {
   const r = areaRect();
-  const half = SQUARE_SIZE / 2;
   const SAFE_TOP = 64;
 
-  return {
-    x: Math.random() * (r.width - SQUARE_SIZE),
-    y: SAFE_TOP + Math.random() * (r.height - SQUARE_SIZE - SAFE_TOP)
-  };
+  const x = Math.random() * (r.width - SQUARE_SIZE);
+  const y = SAFE_TOP + Math.random() * (r.height - SQUARE_SIZE - SAFE_TOP);
+
+  return { x, y };
 }
 
 function pickTypeByWeight() {
-  return Math.random() * (GOOD_WEIGHT + POOR_WEIGHT) < GOOD_WEIGHT
+  return (Math.random() * (GOOD_WEIGHT + POOR_WEIGHT) < GOOD_WEIGHT)
     ? "GOOD"
     : "POOR";
 }
@@ -145,7 +148,7 @@ function applyTargetVisual() {
     } else {
       targetImg.classList.add("hidden");
       fallbackNum.classList.remove("hidden");
-      fallbackNum.textContent = "+50";
+      fallbackNum.textContent = "+";
     }
   } else {
     if (poorOk) {
@@ -155,38 +158,39 @@ function applyTargetVisual() {
     } else {
       targetImg.classList.add("hidden");
       fallbackNum.classList.remove("hidden");
-      fallbackNum.textContent = "避開";
+      fallbackNum.textContent = "X";
     }
   }
 }
 
 function spawnNewTarget() {
   currentType = pickTypeByWeight();
-  const pos = randomPos();
-  targetEl.style.left = `${pos.x}px`;
-  targetEl.style.top = `${pos.y}px`;
+  const { x, y } = randomPos();
+  targetEl.style.left = `${x}px`;
+  targetEl.style.top = `${y}px`;
   applyTargetVisual();
 }
 
-function flashOnTarget() {
-  targetEl.classList.add("wrong");
-  if (navigator.vibrate) navigator.vibrate(25);
-  setTimeout(() => targetEl.classList.remove("wrong"), WRONG_FLASH_MS);
-}
-
 function updateHud() {
-  scoreEl.textContent = `Score: ${score}`;
-  timerEl.textContent = `Time: ${formatCountdown(remainingSec)}`;
-  progressEl.textContent =
-    currentType === "GOOD"
-      ? "點水豚加分！"
-      : "避開它，點空白！";
+  if (scoreEl) scoreEl.textContent = `Score: ${score}`;
+  if (timerEl) timerEl.textContent = `Time: ${formatCountdown(remainingSec)}`;
+
+  if (progressEl) {
+    if (currentType === "GOOD") {
+      progressEl.textContent = "點元寶水豚可加分（空白=跳過/斷Combo）";
+    } else {
+      progressEl.textContent = "避開空錢包水豚（點到會扣分）";
+    }
+  }
 }
 
 // =====================
 // UI
 // =====================
 function setUIStart() {
+  state = "START";
+  cancelAnimationFrame(rafId);
+
   startScreen.classList.remove("hidden");
   resultScreen.classList.add("hidden");
   targetEl.classList.add("hidden");
@@ -194,6 +198,7 @@ function setUIStart() {
   score = 0;
   comboCount = 0;
   remainingSec = GAME_DURATION_SEC;
+  currentType = "GOOD";
 
   updateHud();
 }
@@ -220,7 +225,7 @@ function setUIResult(finalScore) {
 }
 
 // =====================
-// Game Loop
+// Game loop
 // =====================
 function tick() {
   if (state !== "PLAYING") return;
@@ -240,20 +245,27 @@ function tick() {
 
 function startGame() {
   updateSquareSize();
+
   state = "PLAYING";
   score = 0;
   comboCount = 0;
+  remainingSec = GAME_DURATION_SEC;
+
   startTimeMs = performance.now();
 
   setUIPlaying();
   spawnNewTarget();
+
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
 }
 
 function finishGame() {
+  if (state !== "PLAYING") return;
+
   state = "RESULT";
   cancelAnimationFrame(rafId);
+
   insertRanking(score);
   setUIResult(score);
 }
@@ -261,33 +273,43 @@ function finishGame() {
 // =====================
 // Input
 // =====================
-gameArea.addEventListener("pointerdown", e => {
+gameArea.addEventListener("pointerdown", (e) => {
   if (state !== "PLAYING") return;
 
   const r = targetEl.getBoundingClientRect();
   const hit =
     e.clientX >= r.left && e.clientX <= r.right &&
-    e.clientY >= r.top && e.clientY <= r.bottom;
+    e.clientY >= r.top  && e.clientY <= r.bottom;
 
   if (currentType === "GOOD") {
     if (hit) {
-      comboCount++;
+      // ✅ Hit GOOD => combo grows, score increases (50->70->100)
+      comboCount += 1;
       score += getComboScore(comboCount);
       spawnNewTarget();
     } else {
+      // ✅ Click blank on GOOD => no score, combo breaks, spawn next (no flash)
       comboCount = 0;
-      flashOnTarget();
+      spawnNewTarget();
     }
-  } else {
+  } else { // POOR
+    // Any POOR appearance breaks combo (either action)
     comboCount = 0;
+
     if (hit) {
+      // ❌ Hit POOR => penalty
       score += SCORE_POOR_PENALTY;
-      flashOnTarget();
+      if (navigator.vibrate) navigator.vibrate(25);
+      spawnNewTarget();
+    } else {
+      // ✅ Click blank on POOR => safe, just move on
+      spawnNewTarget();
     }
-    spawnNewTarget();
   }
 
+  // Optional: prevent negative score floor
   score = Math.max(0, score);
+
   updateHud();
 });
 
