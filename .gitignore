@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Node / tools (未來可能會用到)
+node_modules/
+
+# VS Code (可選)
+.vscode/

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Number Touch Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top bar -->
+    <div class="topbar">
+      <div id="progress" class="muted"></div>
+      <div id="timer" class="timer">Time: 0.00s</div>
+    </div>
+
+    <!-- Canvas area -->
+    <div id="gameArea" class="game-area">
+      <!-- Start screen -->
+      <div id="startScreen" class="overlay">
+        <button id="btnStart" class="btn">開始</button>
+        <div class="hint muted">（ESC 可離開；手機/平板可直接觸控）</div>
+      </div>
+
+      <!-- Result screen -->
+      <div id="resultScreen" class="overlay hidden">
+        <div id="finalTime" class="final"></div>
+        <div class="rank-title">排行榜（Top 10｜本機）</div>
+        <ol id="rankList" class="rank-list"></ol>
+        <div class="result-actions">
+          <button id="btnRetry" class="btn">再玩一次</button>
+          <button id="btnExit" class="btn btn-secondary">離開</button>
+        </div>
+      </div>
+
+      <!-- The target square -->
+      <div id="target" class="target hidden">
+        <img id="targetImg" alt="target" />
+        <div id="fallbackNum" class="fallback-num hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
