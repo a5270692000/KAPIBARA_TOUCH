@@ -1,5 +1,5 @@
 // =====================
-// New Game Mode: 30s score attack
+// Game Mode: 30s score attack + POOR must click outside
 // =====================
 
 // ----- Config -----
@@ -8,17 +8,17 @@ let SQUARE_SIZE = 140;          // responsive size
 const WRONG_FLASH_MS = 120;
 
 const SCORE_GOOD = 50;          // KAPIBARA.png
-const SCORE_POOR = -30;         // KAPIBARA_poor.png
+const SCORE_POOR_PENALTY = -30; // click POOR square => -30
 
 // 7:3 ratio
 const GOOD_WEIGHT = 7;
 const POOR_WEIGHT = 3;
 
 // Local ranking (Top10) for score mode
-const RANK_KEY = "kapibara_score_attack_rankings_v1";
+const RANK_KEY = "kapibara_score_attack_rankings_v2";
 const RANK_KEEP_TOP = 10;
 
-// Images
+// Images (case-sensitive on Netlify)
 const IMG_GOOD = "picture/KAPIBARA.png";
 const IMG_POOR = "picture/KAPIBARA_poor.png";
 
@@ -32,9 +32,8 @@ const btnRetry = document.getElementById("btnRetry");
 const btnExit = document.getElementById("btnExit");
 
 const timerEl = document.getElementById("timer");
-const progressEl = document.getElementById("progress"); // left-top (we'll keep but not required)
-
-const scoreEl = document.getElementById("score"); // ✅ added in index.html
+const progressEl = document.getElementById("progress"); // optional left-top
+const scoreEl = document.getElementById("score");       // must exist in index.html
 
 const targetEl = document.getElementById("target");
 const targetImg = document.getElementById("targetImg");
@@ -77,7 +76,6 @@ function areaRect() {
   return gameArea.getBoundingClientRect();
 }
 
-// responsive square size
 function updateSquareSize() {
   const r = areaRect();
   const base = r.width;
@@ -87,7 +85,6 @@ function updateSquareSize() {
 }
 
 function formatCountdown(sec) {
-  // show like 30.0s
   return `${sec.toFixed(1)}s`;
 }
 
@@ -99,7 +96,7 @@ function loadRankings() {
     if (!Array.isArray(arr)) return [];
     return arr
       .filter(n => typeof n === "number" && isFinite(n))
-      .sort((a,b) => b - a) // score higher first
+      .sort((a,b) => b - a) // higher score first
       .slice(0, RANK_KEEP_TOP);
   } catch {
     return [];
@@ -144,7 +141,7 @@ function pickTypeByWeight() {
 }
 
 function applyTargetVisual() {
-  // set image based on currentType
+  // Use image if loaded; else fallback text
   if (currentType === "GOOD") {
     if (goodOk) {
       targetImg.src = IMG_GOOD;
@@ -163,7 +160,7 @@ function applyTargetVisual() {
     } else {
       targetImg.classList.add("hidden");
       fallbackNum.classList.remove("hidden");
-      fallbackNum.textContent = "-30";
+      fallbackNum.textContent = "避開";
     }
   }
 }
@@ -176,12 +173,39 @@ function spawnNewTarget() {
   applyTargetVisual();
 }
 
+// feedback
+function flashOnTarget() {
+  targetEl.classList.add("wrong");
+  if (navigator.vibrate) navigator.vibrate(25);
+  setTimeout(() => targetEl.classList.remove("wrong"), WRONG_FLASH_MS);
+}
+
+function updateHud() {
+  if (scoreEl) scoreEl.textContent = `Score: ${score}`;
+  timerEl.textContent = `Time: ${formatCountdown(remainingSec)}`;
+
+  // Optional info left-top:
+  // Show hint depending on target type (help player)
+  if (currentType === "GOOD") {
+    progressEl.textContent = "點水豚 +50";
+  } else {
+    progressEl.textContent = "避開它：點空白";
+  }
+}
+
+// =====================
+// UI
+// =====================
 function setUIStart() {
   startScreen.classList.remove("hidden");
   resultScreen.classList.add("hidden");
   targetEl.classList.add("hidden");
 
-  progressEl.textContent = ""; // not used now
+  remainingSec = GAME_DURATION_SEC;
+  score = 0;
+  currentType = "GOOD";
+
+  progressEl.textContent = "";
   if (scoreEl) scoreEl.textContent = "Score: 0";
   timerEl.textContent = `Time: ${formatCountdown(GAME_DURATION_SEC)}`;
 }
@@ -197,20 +221,14 @@ function setUIResult(finalScore) {
   resultScreen.classList.remove("hidden");
   targetEl.classList.add("hidden");
 
-  finalTimeEl.textContent = `本回合得分：${finalScore}`;
+  finalTimeEl.textContent = `瓜瓜可能會得到：${finalScore} 元`;
 
   rankListEl.innerHTML = "";
   rankings.slice(0, RANK_KEEP_TOP).forEach((s) => {
     const li = document.createElement("li");
-    li.textContent = `${s} 分`;
+    li.textContent = `${s} 元`;
     rankListEl.appendChild(li);
   });
-}
-
-function wrongFlash() {
-  targetEl.classList.add("wrong");
-  if (navigator.vibrate) navigator.vibrate(25);
-  setTimeout(() => targetEl.classList.remove("wrong"), WRONG_FLASH_MS);
 }
 
 // =====================
@@ -223,15 +241,14 @@ function tick() {
   const elapsed = (now - startTimeMs) / 1000;
   remainingSec = Math.max(0, GAME_DURATION_SEC - elapsed);
 
-  timerEl.textContent = `Time: ${formatCountdown(remainingSec)}`;
-  if (scoreEl) scoreEl.textContent = `Score: ${score}`;
-  progressEl.textContent = ""; // keep blank or show hint if you want
-
   if (remainingSec <= 0) {
+    remainingSec = 0;
+    updateHud();
     finishGame();
     return;
   }
 
+  updateHud();
   rafId = requestAnimationFrame(tick);
 }
 
@@ -248,6 +265,7 @@ function startGame() {
   startTimeMs = performance.now();
   setUIPlaying();
   spawnNewTarget();
+  updateHud();
 
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
@@ -275,7 +293,9 @@ btnExit.addEventListener("click", () => {
   setUIStart();
 });
 
-// click/tap
+// Main rule change:
+// - GOOD: click square => +50, click outside => flash only
+// - POOR: click square => -30, click outside => SAFE (no penalty) and spawn next
 gameArea.addEventListener("pointerdown", (e) => {
   if (state !== "PLAYING") return;
 
@@ -284,16 +304,27 @@ gameArea.addEventListener("pointerdown", (e) => {
     e.clientX >= tRect.left && e.clientX <= tRect.right &&
     e.clientY >= tRect.top  && e.clientY <= tRect.bottom;
 
-  if (hit) {
-    // scoring
-    if (currentType === "GOOD") score += SCORE_GOOD;
-    else score += SCORE_POOR;
-
-    // spawn next immediately
-    spawnNewTarget();
-  } else {
-    // optional: flash on miss
-    wrongFlash();
+  if (currentType === "GOOD") {
+    if (hit) {
+      score += SCORE_GOOD;
+      spawnNewTarget();
+      updateHud();
+    } else {
+      // miss good: no score change
+      flashOnTarget();
+    }
+  } else { // POOR
+    if (hit) {
+      // clicked poor => penalty
+      score += SCORE_POOR_PENALTY;
+      flashOnTarget();
+      spawnNewTarget();
+      updateHud();
+    } else {
+      // clicked outside => correct action, no penalty, just move on
+      spawnNewTarget();
+      updateHud();
+    }
   }
 });
 
