@@ -293,19 +293,17 @@ gameArea.addEventListener("pointerdown", (e) => {
       spawnNewTarget();
     }
   } else { // POOR
-    // Any POOR appearance breaks combo (either action)
-    comboCount = 0;
-
     if (hit) {
-      // ❌ Hit POOR => penalty
+      // ❌ Hit POOR => penalty + break combo
+      comboCount = 0;
       score += SCORE_POOR_PENALTY;
       if (navigator.vibrate) navigator.vibrate(25);
       spawnNewTarget();
     } else {
-      // ✅ Click blank on POOR => safe, just move on
+      // ✅ Click blank on POOR => safe skip, KEEP combo
       spawnNewTarget();
     }
-  }
+}
 
   // Optional: prevent negative score floor
   score = Math.max(0, score);
