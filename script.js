@@ -2,14 +2,14 @@
 // Config
 // =====================
 const TARGET_MAX = 10;
-const SQUARE_SIZE = 140;
+let SQUARE_SIZE = 140;           // ✅ will be recalculated by screen size
 const WRONG_FLASH_MS = 150;
 
 const RANK_KEY = "number_touch_rankings_v1";
 const RANK_KEEP_TOP = 10;
 
-// Image path (put your PNG here)
-const IMG_PATH = "picture/KAPIBARA.PNG";
+// ✅ Image path (MAKE SURE case matches your repo filename)
+const IMG_PATH = "picture/KAPIBARA.png";
 
 // =====================
 // DOM
@@ -66,7 +66,10 @@ function loadRankings() {
     if (!raw) return [];
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
-    return arr.filter(n => typeof n === "number" && isFinite(n)).sort((a,b)=>a-b).slice(0, RANK_KEEP_TOP);
+    return arr
+      .filter(n => typeof n === "number" && isFinite(n))
+      .sort((a,b)=>a-b)
+      .slice(0, RANK_KEEP_TOP);
   } catch {
     return [];
   }
@@ -89,15 +92,31 @@ function areaRect() {
   return gameArea.getBoundingClientRect();
 }
 
+// ✅ Recalculate square size based on current gameArea width
+function updateSquareSize() {
+  const r = areaRect();
+
+  // Square takes about 22% of width; clamp between 72 and 140
+  const base = r.width;
+  const sq = Math.max(72, Math.min(140, Math.round(base * 0.22)));
+
+  SQUARE_SIZE = sq;
+
+  // Sync to CSS variable
+  gameArea.style.setProperty("--sq", `${SQUARE_SIZE}px`);
+}
+
 // random position inside the square area, keeping within bounds
 function randomPos() {
   const r = areaRect();
   const half = SQUARE_SIZE / 2;
 
-  // keep inside
+  // ✅ Leave space at top so target doesn't block Timer/Progress
+  const SAFE_TOP = 56;
+
   const minX = half;
   const maxX = r.width - half;
-  const minY = half;
+  const minY = half + SAFE_TOP;
   const maxY = r.height - half;
 
   const cx = minX + Math.random() * (maxX - minX);
@@ -143,9 +162,8 @@ function setUIResult(finalSec) {
 
   finalTimeEl.textContent = `完成：${formatTime(finalSec)}`;
 
-  // render list
   rankListEl.innerHTML = "";
-  rankings.slice(0, RANK_KEEP_TOP).forEach((t, idx) => {
+  rankings.slice(0, RANK_KEEP_TOP).forEach((t) => {
     const li = document.createElement("li");
     li.textContent = formatTime(t);
     rankListEl.appendChild(li);
@@ -166,12 +184,16 @@ function tick() {
 // Game flow
 // =====================
 function startGame() {
+  updateSquareSize(); // ✅ ensure correct size before placing
+
   state = "PLAYING";
   currentTarget = 1;
   elapsedSec = 0;
+
   startTimeMs = performance.now();
   setUIPlaying();
   placeTargetRandomly();
+
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
 }
@@ -179,6 +201,7 @@ function startGame() {
 function finishGame() {
   state = "RESULT";
   cancelAnimationFrame(rafId);
+
   const finalSec = elapsedSec;
   insertRanking(finalSec);
   setUIResult(finalSec);
@@ -186,6 +209,7 @@ function finishGame() {
 
 function wrongFlash() {
   targetEl.classList.add("wrong");
+  if (navigator.vibrate) navigator.vibrate(30); // ✅ mobile feedback
   setTimeout(() => targetEl.classList.remove("wrong"), WRONG_FLASH_MS);
 }
 
@@ -194,8 +218,9 @@ function wrongFlash() {
 // =====================
 btnStart.addEventListener("click", startGame);
 btnRetry.addEventListener("click", startGame);
+
 btnExit.addEventListener("click", () => {
-  // simplest "exit": go back to start screen
+  // "exit" = back to start screen
   state = "START";
   cancelAnimationFrame(rafId);
   setUIStart();
@@ -206,8 +231,9 @@ gameArea.addEventListener("pointerdown", (e) => {
   if (state !== "PLAYING") return;
 
   const tRect = targetEl.getBoundingClientRect();
-  const hit = (e.clientX >= tRect.left && e.clientX <= tRect.right &&
-               e.clientY >= tRect.top  && e.clientY <= tRect.bottom);
+  const hit =
+    e.clientX >= tRect.left && e.clientX <= tRect.right &&
+    e.clientY >= tRect.top  && e.clientY <= tRect.bottom;
 
   if (hit) {
     if (currentTarget < TARGET_MAX) {
@@ -230,5 +256,12 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// ✅ Recalculate square size on resize/orientation change
+window.addEventListener("resize", () => {
+  updateSquareSize();
+  if (state === "PLAYING") placeTargetRandomly();
+});
+
 // initial UI
+updateSquareSize();
 setUIStart();
