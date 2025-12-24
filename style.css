@@ -228,3 +228,50 @@ body{
     font-size:13px;
   }
 }
+
+/* =========================
+   Floating score text
+   ========================= */
+.float-score{
+  position:absolute;
+  left:0;
+  top:0;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  font-size: 22px;
+  pointer-events:none;
+  user-select:none;
+  animation: floatUp 650ms ease-out forwards;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+
+@keyframes floatUp{
+  0%   { opacity: 0; transform: translate(-50%, -50%) translateY(6px) scale(0.96); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translateY(-34px) scale(1.05); }
+}
+
+/* =========================
+   Last 5s "hurry" mode
+   ========================= */
+.timer.danger{
+  color: #d00000;
+}
+
+.game-area.hurry{
+  animation: hurryPulse 600ms ease-in-out infinite;
+}
+
+@keyframes hurryPulse{
+  0%   { filter: brightness(1); }
+  50%  { filter: brightness(0.97); }
+  100% { filter: brightness(1); }
+}
+
+/* Mobile: float text a bit smaller */
+@media (max-width:480px){
+  .float-score{
+    font-size: 18px;
+  }
+}
+

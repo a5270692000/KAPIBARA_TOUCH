@@ -1,11 +1,12 @@
 // =====================
-// Game Mode: 30s score attack + combo system (GOOD can click blank to skip)
+// Game Mode: 30s score attack + combo + floating score + last-5s hurry
 // =====================
 
 // ----- Config -----
 const GAME_DURATION_SEC = 30;
 let SQUARE_SIZE = 140;
 
+// Score rules
 const SCORE_POOR_PENALTY = -30;
 
 // 7:3 ratio
@@ -13,7 +14,7 @@ const GOOD_WEIGHT = 7;
 const POOR_WEIGHT = 3;
 
 // Ranking
-const RANK_KEY = "kapibara_score_attack_rankings_v4";
+const RANK_KEY = "kapibara_score_attack_rankings_v5";
 const RANK_KEEP_TOP = 10;
 
 // Images (case-sensitive on Netlify)
@@ -51,19 +52,21 @@ let score = 0;
 let comboCount = 0;
 let currentType = "GOOD"; // GOOD | POOR
 
+// last-5s
+let inHurry = false;
+let lastHurrySecond = -1; // to trigger once per second
+
 // ----- Preload Images -----
 let goodOk = false;
 let poorOk = false;
 
 const goodImg = new Image();
 const poorImg = new Image();
-
 goodImg.src = IMG_GOOD;
 poorImg.src = IMG_POOR;
 
 goodImg.onload = () => { goodOk = true; };
 goodImg.onerror = () => { goodOk = false; };
-
 poorImg.onload = () => { poorOk = true; };
 poorImg.onerror = () => { poorOk = false; };
 
@@ -177,10 +180,49 @@ function updateHud() {
 
   if (progressEl) {
     if (currentType === "GOOD") {
-      progressEl.textContent = "點元寶水豚可加分（空白=跳過/斷Combo）";
+      progressEl.textContent = "點元寶水豚加分（空白=跳過/斷Combo）";
     } else {
       progressEl.textContent = "避開空錢包水豚（點到會扣分）";
     }
+  }
+}
+
+// =====================
+// NEW: floating score text
+// =====================
+function showFloatScore(text, clientX, clientY) {
+  const r = areaRect();
+  const x = clientX - r.left;
+  const y = clientY - r.top;
+
+  const el = document.createElement("div");
+  el.className = "float-score";
+  el.textContent = text;
+
+  // simple color rule (no extra CSS required)
+  if (String(text).startsWith("+")) el.style.color = "#0a7a2f";
+  else if (String(text).startsWith("-")) el.style.color = "#c00000";
+  else el.style.color = "#333";
+
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+
+  gameArea.appendChild(el);
+  el.addEventListener("animationend", () => el.remove());
+}
+
+// =====================
+// NEW: last 5 seconds hurry mode
+// =====================
+function setHurryMode(on) {
+  inHurry = on;
+  if (on) {
+    gameArea.classList.add("hurry");
+    timerEl.classList.add("danger");
+  } else {
+    gameArea.classList.remove("hurry");
+    timerEl.classList.remove("danger");
+    lastHurrySecond = -1;
   }
 }
 
@@ -200,6 +242,7 @@ function setUIStart() {
   remainingSec = GAME_DURATION_SEC;
   currentType = "GOOD";
 
+  setHurryMode(false);
   updateHud();
 }
 
@@ -233,6 +276,20 @@ function tick() {
   const elapsed = (performance.now() - startTimeMs) / 1000;
   remainingSec = Math.max(0, GAME_DURATION_SEC - elapsed);
 
+  // hurry mode when <= 5s
+  const shouldHurry = remainingSec > 0 && remainingSec <= 5.0;
+  if (shouldHurry && !inHurry) setHurryMode(true);
+  if (!shouldHurry && inHurry) setHurryMode(false);
+
+  // (optional) light vibration each second in hurry
+  if (inHurry) {
+    const secInt = Math.ceil(remainingSec); // 5,4,3,2,1
+    if (secInt !== lastHurrySecond) {
+      lastHurrySecond = secInt;
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+  }
+
   updateHud();
 
   if (remainingSec <= 0) {
@@ -250,6 +307,9 @@ function startGame() {
   score = 0;
   comboCount = 0;
   remainingSec = GAME_DURATION_SEC;
+  currentType = "GOOD";
+
+  setHurryMode(false);
 
   startTimeMs = performance.now();
 
@@ -266,6 +326,7 @@ function finishGame() {
   state = "RESULT";
   cancelAnimationFrame(rafId);
 
+  setHurryMode(false);
   insertRanking(score);
   setUIResult(score);
 }
@@ -285,10 +346,14 @@ gameArea.addEventListener("pointerdown", (e) => {
     if (hit) {
       // ✅ Hit GOOD => combo grows, score increases (50->70->100)
       comboCount += 1;
-      score += getComboScore(comboCount);
+      const gain = getComboScore(comboCount);
+      score += gain;
+
+      showFloatScore(`+${gain}`, e.clientX, e.clientY);
+
       spawnNewTarget();
     } else {
-      // ✅ Click blank on GOOD => no score, combo breaks, spawn next (no flash)
+      // ✅ Click blank on GOOD => no score, combo breaks, spawn next (no float)
       comboCount = 0;
       spawnNewTarget();
     }
@@ -297,15 +362,18 @@ gameArea.addEventListener("pointerdown", (e) => {
       // ❌ Hit POOR => penalty + break combo
       comboCount = 0;
       score += SCORE_POOR_PENALTY;
+
+      showFloatScore(`${SCORE_POOR_PENALTY}`, e.clientX, e.clientY);
+
       if (navigator.vibrate) navigator.vibrate(25);
       spawnNewTarget();
     } else {
       // ✅ Click blank on POOR => safe skip, KEEP combo
       spawnNewTarget();
     }
-}
+  }
 
-  // Optional: prevent negative score floor
+  // prevent negative
   score = Math.max(0, score);
 
   updateHud();
