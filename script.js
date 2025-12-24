@@ -201,9 +201,9 @@ function updateHud() {
 
   if (progressEl) {
     if (currentType === "GOOD") {
-      progressEl.textContent = "點元寶水豚加分（空白=跳過/斷Combo）";
+      progressEl.textContent = "點元寶水豚加分";
     } else {
-      progressEl.textContent = "避開空錢包水豚（點到會扣分；空白=跳過不斷Combo）";
+      progressEl.textContent = "避開空錢包水豚";
     }
   }
 }
