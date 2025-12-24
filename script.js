@@ -1,5 +1,5 @@
 // =====================
-// Game Mode: 30s score attack + combo + floating score + last-5s hurry
+// Game Mode: 30s score attack + combo + floating score + last-5s hurry + low beep
 // =====================
 
 // ----- Config -----
@@ -14,7 +14,7 @@ const GOOD_WEIGHT = 7;
 const POOR_WEIGHT = 3;
 
 // Ranking
-const RANK_KEY = "kapibara_score_attack_rankings_v5";
+const RANK_KEY = "kapibara_score_attack_rankings_v6";
 const RANK_KEEP_TOP = 10;
 
 // Images (case-sensitive on Netlify)
@@ -182,13 +182,13 @@ function updateHud() {
     if (currentType === "GOOD") {
       progressEl.textContent = "點元寶水豚加分（空白=跳過/斷Combo）";
     } else {
-      progressEl.textContent = "避開空錢包水豚（點到會扣分）";
+      progressEl.textContent = "避開空錢包水豚（點到會扣分；空白=跳過不斷Combo）";
     }
   }
 }
 
 // =====================
-// NEW: floating score text
+// Floating score text
 // =====================
 function showFloatScore(text, clientX, clientY) {
   const r = areaRect();
@@ -199,7 +199,7 @@ function showFloatScore(text, clientX, clientY) {
   el.className = "float-score";
   el.textContent = text;
 
-  // simple color rule (no extra CSS required)
+  // simple color rule
   if (String(text).startsWith("+")) el.style.color = "#0a7a2f";
   else if (String(text).startsWith("-")) el.style.color = "#c00000";
   else el.style.color = "#333";
@@ -212,7 +212,38 @@ function showFloatScore(text, clientX, clientY) {
 }
 
 // =====================
-// NEW: last 5 seconds hurry mode
+// Low beep sound (Web Audio)
+// =====================
+let audioCtx = null;
+
+function playLowBeep() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    // iOS sometimes starts suspended until user gesture; pointerdown already happened earlier in game
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.frequency.value = 140; // low tone
+    osc.type = "sine";
+
+    gain.gain.value = 0.12; // volume
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+  } catch {
+    // ignore
+  }
+}
+
+// =====================
+// Last 5 seconds hurry mode
 // =====================
 function setHurryMode(on) {
   inHurry = on;
@@ -281,12 +312,14 @@ function tick() {
   if (shouldHurry && !inHurry) setHurryMode(true);
   if (!shouldHurry && inHurry) setHurryMode(false);
 
-  // (optional) light vibration each second in hurry
+  // last 5s: once per second -> vibrate + low beep
   if (inHurry) {
     const secInt = Math.ceil(remainingSec); // 5,4,3,2,1
     if (secInt !== lastHurrySecond) {
       lastHurrySecond = secInt;
+
       if (navigator.vibrate) navigator.vibrate(15);
+      playLowBeep();
     }
   }
 
@@ -353,7 +386,7 @@ gameArea.addEventListener("pointerdown", (e) => {
 
       spawnNewTarget();
     } else {
-      // ✅ Click blank on GOOD => no score, combo breaks, spawn next (no float)
+      // ✅ Click blank on GOOD => no score, combo breaks, spawn next
       comboCount = 0;
       spawnNewTarget();
     }
