@@ -40,7 +40,13 @@ body{
   display:flex;
   flex-direction:column;
   align-items:flex-end;
-  gap:4px;
+  gap:2px;
+
+  /* ✅ 往左內縮，避免貼齊螢幕右緣造成換行 */
+  padding-right: 8px;
+
+  /* ✅ 保險：強制不換行（避免撐高 topbar） */
+  white-space: nowrap;
 }
 
 .score{
@@ -130,7 +136,7 @@ body{
    ========================= */
 .game-desc-center{
   max-width:520px;
-  width: min(520px, 90%);
+  width:min(520px, 90%);
   background:rgba(255,255,255,0.95);
   border:2px solid #ddd;
   border-radius:14px;
@@ -213,23 +219,6 @@ body{
 }
 
 /* =========================
-   Mobile tweaks
-   ========================= */
-@media (max-width:480px){
-  .score{ font-size:16px; }
-  .timer{ font-size:14px; }
-
-  .final{
-    font-size:clamp(20px, 5vw, 24px);
-  }
-
-  .game-desc-center{
-    padding:12px 14px;
-    font-size:13px;
-  }
-}
-
-/* =========================
    Floating score text
    ========================= */
 .float-score{
@@ -268,10 +257,32 @@ body{
   100% { filter: brightness(1); }
 }
 
-/* Mobile: float text a bit smaller */
+/* =========================
+   Mobile tweaks
+   ========================= */
 @media (max-width:480px){
+  .score{
+    font-size:14px;   /* ✅ 更小，避免換行 */
+  }
+
+  .timer{
+    font-size:13px;
+  }
+
+  .muted{
+    font-size:12px;
+  }
+
+  .final{
+    font-size:clamp(20px, 5vw, 24px);
+  }
+
+  .game-desc-center{
+    padding:12px 14px;
+    font-size:13px;
+  }
+
   .float-score{
     font-size: 18px;
   }
 }
-
