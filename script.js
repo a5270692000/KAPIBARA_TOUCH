@@ -1,5 +1,6 @@
 // =====================
 // Game Mode: 30s score attack + combo + floating score + last-5s hurry + low beep
+// Mobile fix: resize will NOT re-roll target type
 // =====================
 
 // ----- Config -----
@@ -14,7 +15,7 @@ const GOOD_WEIGHT = 7;
 const POOR_WEIGHT = 3;
 
 // Ranking
-const RANK_KEY = "kapibara_score_attack_rankings_v6";
+const RANK_KEY = "kapibara_score_attack_rankings_v7";
 const RANK_KEEP_TOP = 10;
 
 // Images (case-sensitive on Netlify)
@@ -136,6 +137,26 @@ function randomPos() {
   return { x, y };
 }
 
+function clampTargetPosition() {
+  const r = areaRect();
+  const SAFE_TOP = 64;
+
+  let left = parseFloat(targetEl.style.left);
+  let top = parseFloat(targetEl.style.top);
+
+  if (!isFinite(left)) left = 0;
+  if (!isFinite(top)) top = SAFE_TOP;
+
+  const maxLeft = Math.max(0, r.width - SQUARE_SIZE);
+  const maxTop = Math.max(SAFE_TOP, r.height - SQUARE_SIZE);
+
+  left = Math.min(Math.max(0, left), maxLeft);
+  top = Math.min(Math.max(SAFE_TOP, top), maxTop);
+
+  targetEl.style.left = `${left}px`;
+  targetEl.style.top = `${top}px`;
+}
+
 function pickTypeByWeight() {
   return (Math.random() * (GOOD_WEIGHT + POOR_WEIGHT) < GOOD_WEIGHT)
     ? "GOOD"
@@ -199,7 +220,6 @@ function showFloatScore(text, clientX, clientY) {
   el.className = "float-score";
   el.textContent = text;
 
-  // simple color rule
   if (String(text).startsWith("+")) el.style.color = "#0a7a2f";
   else if (String(text).startsWith("-")) el.style.color = "#c00000";
   else el.style.color = "#333";
@@ -221,16 +241,14 @@ function playLowBeep() {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    // iOS sometimes starts suspended until user gesture; pointerdown already happened earlier in game
     if (audioCtx.state === "suspended") audioCtx.resume();
 
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
-    osc.frequency.value = 140; // low tone
+    osc.frequency.value = 140;
     osc.type = "sine";
-
-    gain.gain.value = 0.12; // volume
+    gain.gain.value = 0.12;
 
     osc.connect(gain);
     gain.connect(audioCtx.destination);
@@ -307,17 +325,14 @@ function tick() {
   const elapsed = (performance.now() - startTimeMs) / 1000;
   remainingSec = Math.max(0, GAME_DURATION_SEC - elapsed);
 
-  // hurry mode when <= 5s
   const shouldHurry = remainingSec > 0 && remainingSec <= 5.0;
   if (shouldHurry && !inHurry) setHurryMode(true);
   if (!shouldHurry && inHurry) setHurryMode(false);
 
-  // last 5s: once per second -> vibrate + low beep
   if (inHurry) {
-    const secInt = Math.ceil(remainingSec); // 5,4,3,2,1
+    const secInt = Math.ceil(remainingSec); // 5..1
     if (secInt !== lastHurrySecond) {
       lastHurrySecond = secInt;
-
       if (navigator.vibrate) navigator.vibrate(15);
       playLowBeep();
     }
@@ -377,38 +392,31 @@ gameArea.addEventListener("pointerdown", (e) => {
 
   if (currentType === "GOOD") {
     if (hit) {
-      // ✅ Hit GOOD => combo grows, score increases (50->70->100)
       comboCount += 1;
       const gain = getComboScore(comboCount);
       score += gain;
-
       showFloatScore(`+${gain}`, e.clientX, e.clientY);
-
       spawnNewTarget();
     } else {
-      // ✅ Click blank on GOOD => no score, combo breaks, spawn next
+      // blank click on GOOD => skip + break combo
       comboCount = 0;
       spawnNewTarget();
     }
   } else { // POOR
     if (hit) {
-      // ❌ Hit POOR => penalty + break combo
+      // hit POOR => -30 + break combo
       comboCount = 0;
       score += SCORE_POOR_PENALTY;
-
       showFloatScore(`${SCORE_POOR_PENALTY}`, e.clientX, e.clientY);
-
       if (navigator.vibrate) navigator.vibrate(25);
       spawnNewTarget();
     } else {
-      // ✅ Click blank on POOR => safe skip, KEEP combo
+      // blank click on POOR => skip, KEEP combo
       spawnNewTarget();
     }
   }
 
-  // prevent negative
   score = Math.max(0, score);
-
   updateHud();
 });
 
@@ -416,9 +424,10 @@ btnStart.addEventListener("click", startGame);
 btnRetry.addEventListener("click", startGame);
 btnExit.addEventListener("click", setUIStart);
 
+// ✅ Mobile fix: do NOT re-roll target on resize (avoid GOOD suddenly becomes POOR)
 window.addEventListener("resize", () => {
   updateSquareSize();
-  if (state === "PLAYING") spawnNewTarget();
+  if (state === "PLAYING") clampTargetPosition();
 });
 
 // init
