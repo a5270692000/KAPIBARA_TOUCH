@@ -42,10 +42,10 @@ body{
   align-items:flex-end;
   gap:2px;
 
-  /* ✅ 往左內縮，避免貼齊螢幕右緣造成換行 */
+  /* 往左內縮，避免貼齊螢幕右緣造成換行 */
   padding-right: 8px;
 
-  /* ✅ 保險：強制不換行（避免撐高 topbar） */
+  /* 保險：強制不換行（避免撐高 topbar） */
   white-space: nowrap;
 }
 
@@ -64,7 +64,7 @@ body{
   font-size:14px;
 }
 
-/* ✅ 開始畫面/結算畫面時，隱藏左上角即時提示 */
+/* 開始畫面/結算畫面時，隱藏左上角即時提示 */
 #startScreen:not(.hidden) ~ * #progress,
 #resultScreen:not(.hidden) ~ * #progress{
   visibility:hidden;
@@ -118,7 +118,7 @@ body{
   background:var(--panel2);
   padding:14px 26px;
   border-radius:16px;
-  font-size:20px;
+  font-size:18px;
   font-weight:800;
   cursor:pointer;
 }
@@ -129,6 +129,12 @@ body{
 
 .btn-secondary{
   background:#e5e5e5;
+}
+
+/* Hard mode button style */
+.btn-hard{
+  background:#ffe2e2;
+  border-color:#c44;
 }
 
 /* =========================
@@ -158,6 +164,19 @@ body{
 .game-desc-center li{
   margin-bottom:6px;
   line-height:1.5;
+}
+
+/* Mode selector */
+.mode-title{
+  margin-top:8px;
+  font-weight:800;
+}
+
+.mode-buttons{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  justify-content:center;
 }
 
 /* =========================
@@ -262,7 +281,7 @@ body{
    ========================= */
 @media (max-width:480px){
   .score{
-    font-size:14px;   /* ✅ 更小，避免換行 */
+    font-size:14px;
   }
 
   .timer{
@@ -284,5 +303,10 @@ body{
 
   .float-score{
     font-size: 18px;
+  }
+
+  .btn{
+    font-size:16px;
+    padding:12px 20px;
   }
 }

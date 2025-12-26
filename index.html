@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>瓜瓜年終大挑戰</title>
+  <title>KAPIBARA 30 秒挑戰</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
 
   <!-- Top HUD -->
   <div class="topbar">
-    <!-- ✅ 遊戲中才會顯示；開始/結算時會被 CSS 隱藏 -->
+    <!-- 遊戲中提示文字 -->
     <div id="progress" class="muted"></div>
 
     <div class="hud-right">
@@ -33,19 +33,33 @@
     <!-- Start Screen -->
     <div id="startScreen" class="overlay">
 
-      <!-- ✅ 中央遊戲說明（開始前顯示） -->
+      <!-- 中央遊戲說明（開始前顯示） -->
       <div class="game-desc game-desc-center">
-        <div class="game-desc-title">🎮瓜瓜年終大挑戰 遊戲說明</div>
+        <div class="game-desc-title">🎮 遊戲說明</div>
         <ul>
           <li>🟢 點<strong>拿元寶水豚</strong>可加分（Combo：50 → 70 → 100）</li>
           <li>🟢 點空白可跳過，但會中斷 Combo</li>
-          <li>🔴 點<strong>空錢包水豚</strong>會扣 30 分</li>
+          <li>🔴 點<strong>空錢包水豚</strong>會扣 30 分（點空白可安全跳過）</li>
           <li>⏱️ 30 秒內挑戰最高分</li>
+        </ul>
+        <hr />
+        <ul>
+          <li>🌟 <strong>困難模式限定：</strong></li>
+          <li>　⭐ Combo 連續 5 次會觸發「黃金水豚」機會（GOLD_KAPIBARA）</li>
+          <li>　⭐ 點中黃金水豚：+300 分；點空白不扣分，但 Combo 會斷</li>
+          <li>　😈 會出現「惡魔水豚」（DEVIL_KAPIBARA），點到 -60 分 + 斷 Combo</li>
+          <li>　📊 困難模式整體比例：7（一般 + 黃金） : 3（POOR + 惡魔）</li>
         </ul>
       </div>
 
-      <button id="btnStart" class="btn">開始</button>
+      <!-- 模式選擇 -->
+      <div class="mode-title">選擇模式</div>
+      <div class="mode-buttons">
+        <button id="btnStartNormal" class="btn">普通模式</button>
+        <button id="btnStartHard" class="btn btn-hard">困難模式</button>
+      </div>
 
+      <div class="hint">( 困難模式：可能會遇到黃金水豚與惡魔水豚 )</div>
       <div class="hint">( ESC 可離開；手機 / 平板可直接觸控 )</div>
     </div>
 
@@ -58,7 +72,7 @@
 
       <div class="result-actions">
         <button id="btnRetry" class="btn">再玩一次</button>
-        <button id="btnExit" class="btn btn-secondary">離開</button>
+        <button id="btnExit" class="btn btn-secondary">回到選單</button>
       </div>
     </div>
 

@@ -1,75 +1,107 @@
 // =====================
-// Game Mode: 30s score attack + combo + floating score + last-5s hurry + low beep
-// Mobile fix: resize will NOT re-roll target type
+// 30s score attack
+// - Normal / Hard mode
+// - Combo + floating score + last-5s hurry + low beep
+// - Hard mode: Golden & Devil kapibara
 // =====================
 
 // ----- Config -----
 const GAME_DURATION_SEC = 30;
 let SQUARE_SIZE = 140;
 
-// Score rules
-const SCORE_POOR_PENALTY = -30;
+// Base penalties
+const SCORE_POOR_PENALTY_BASE = -30;
+const SCORE_DEVIL_PENALTY_BASE = -60;
 
-// 7:3 ratio
-const GOOD_WEIGHT = 7;
-const POOR_WEIGHT = 3;
+// Weights (normal / hard)
+const NORMAL_GOOD_WEIGHT = 7;
+const NORMAL_POOR_WEIGHT = 3;
+
+// Hard mode aggregated ratio:
+// (GOOD + GOLD) : (POOR + DEVIL) = 7 : 3
+// 其中壞陣營內部：POOR / DEVIL 各 1/2
+const HARD_GOODISH_WEIGHT = 7;
+const HARD_BAD_WEIGHT = 3;
 
 // Ranking
-const RANK_KEY = "kapibara_score_attack_rankings_v7";
+const RANK_KEY = "kapibara_score_attack_rankings_v_golddevil_v1";
 const RANK_KEEP_TOP = 10;
 
 // Images (case-sensitive on Netlify)
-const IMG_GOOD = "picture/KAPIBARA.png";
-const IMG_POOR = "picture/KAPIBARA_poor.png";
+const IMG_GOOD  = "picture/KAPIBARA.png";
+const IMG_POOR  = "picture/KAPIBARA_poor.png";
+const IMG_GOLD  = "picture/GOLD_KAPIBARA.png";
+const IMG_DEVIL = "picture/DEVIL_KAPIBARA.png";
 
 // ----- DOM -----
-const gameArea = document.getElementById("gameArea");
-const startScreen = document.getElementById("startScreen");
+const gameArea     = document.getElementById("gameArea");
+const startScreen  = document.getElementById("startScreen");
 const resultScreen = document.getElementById("resultScreen");
 
-const btnStart = document.getElementById("btnStart");
-const btnRetry = document.getElementById("btnRetry");
-const btnExit = document.getElementById("btnExit");
+const btnStartNormal = document.getElementById("btnStartNormal");
+const btnStartHard   = document.getElementById("btnStartHard");
+const btnRetry       = document.getElementById("btnRetry");
+const btnExit        = document.getElementById("btnExit");
 
-const timerEl = document.getElementById("timer");
-const progressEl = document.getElementById("progress");
-const scoreEl = document.getElementById("score");
+const timerEl   = document.getElementById("timer");
+const progressEl= document.getElementById("progress");
+const scoreEl   = document.getElementById("score");
 
-const targetEl = document.getElementById("target");
+const targetEl  = document.getElementById("target");
 const targetImg = document.getElementById("targetImg");
 const fallbackNum = document.getElementById("fallbackNum");
 
 const finalTimeEl = document.getElementById("finalTime");
-const rankListEl = document.getElementById("rankList");
+const rankListEl  = document.getElementById("rankList");
 
 // ----- State -----
 let state = "START"; // START | PLAYING | RESULT
 let rafId = 0;
 
-let startTimeMs = 0;
+let startTimeMs  = 0;
 let remainingSec = GAME_DURATION_SEC;
 
-let score = 0;
+let score      = 0;
 let comboCount = 0;
-let currentType = "GOOD"; // GOOD | POOR
+let currentType = "GOOD"; // "GOOD" | "POOR" | "GOLD" | "DEVIL"
+
+// mode: "normal" | "hard"
+let currentMode = "normal";
 
 // last-5s
 let inHurry = false;
-let lastHurrySecond = -1; // to trigger once per second
+let lastHurrySecond = -1;
+
+// hard-mode: golden ready flag
+let pendingGold = false;
 
 // ----- Preload Images -----
-let goodOk = false;
-let poorOk = false;
+let goodOk  = false;
+let poorOk  = false;
+let goldOk  = false;
+let devilOk = false;
 
-const goodImg = new Image();
-const poorImg = new Image();
-goodImg.src = IMG_GOOD;
-poorImg.src = IMG_POOR;
+const goodImg  = new Image();
+const poorImg  = new Image();
+const goldImg  = new Image();
+const devilImg = new Image();
 
-goodImg.onload = () => { goodOk = true; };
-goodImg.onerror = () => { goodOk = false; };
-poorImg.onload = () => { poorOk = true; };
-poorImg.onerror = () => { poorOk = false; };
+goodImg.src  = IMG_GOOD;
+poorImg.src  = IMG_POOR;
+goldImg.src  = IMG_GOLD;
+devilImg.src = IMG_DEVIL;
+
+goodImg.onload  = () => { goodOk  = true; };
+goodImg.onerror = () => { goodOk  = false; };
+
+poorImg.onload  = () => { poorOk  = true; };
+poorImg.onerror = () => { poorOk  = false; };
+
+goldImg.onload  = () => { goldOk  = true; };
+goldImg.onerror = () => { goldOk  = false; };
+
+devilImg.onload  = () => { devilOk = true; };
+devilImg.onerror = () => { devilOk = false; };
 
 // ----- Ranking -----
 let rankings = loadRankings();
@@ -92,8 +124,8 @@ function formatCountdown(sec) {
   return `${sec.toFixed(1)}s`;
 }
 
-// Combo score rule: +50 -> +70 -> +100 (cap 100)
-function getComboScore(combo) {
+// Combo base rule: +50 -> +70 -> +100 (cap 100)
+function getComboBaseScore(combo) {
   if (combo >= 3) return 100;
   if (combo === 2) return 70;
   return 50;
@@ -142,25 +174,49 @@ function clampTargetPosition() {
   const SAFE_TOP = 64;
 
   let left = parseFloat(targetEl.style.left);
-  let top = parseFloat(targetEl.style.top);
+  let top  = parseFloat(targetEl.style.top);
 
   if (!isFinite(left)) left = 0;
-  if (!isFinite(top)) top = SAFE_TOP;
+  if (!isFinite(top))  top  = SAFE_TOP;
 
   const maxLeft = Math.max(0, r.width - SQUARE_SIZE);
-  const maxTop = Math.max(SAFE_TOP, r.height - SQUARE_SIZE);
+  const maxTop  = Math.max(SAFE_TOP, r.height - SQUARE_SIZE);
 
   left = Math.min(Math.max(0, left), maxLeft);
-  top = Math.min(Math.max(SAFE_TOP, top), maxTop);
+  top  = Math.min(Math.max(SAFE_TOP, top), maxTop);
 
   targetEl.style.left = `${left}px`;
-  targetEl.style.top = `${top}px`;
+  targetEl.style.top  = `${top}px`;
 }
 
-function pickTypeByWeight() {
-  return (Math.random() * (GOOD_WEIGHT + POOR_WEIGHT) < GOOD_WEIGHT)
-    ? "GOOD"
-    : "POOR";
+// pick type by mode
+function pickType() {
+  // 如果有 pendingGold，下一個「好陣營」就一定是 GOLD
+  if (currentMode === "hard" && pendingGold) {
+    // 直接強制 GOLD，不再抽比例
+    pendingGold = false;
+    return "GOLD";
+  }
+
+  if (currentMode === "normal") {
+    // 單純 GOOD : POOR = 7 : 3
+    const total = NORMAL_GOOD_WEIGHT + NORMAL_POOR_WEIGHT;
+    const r = Math.random() * total;
+    return r < NORMAL_GOOD_WEIGHT ? "GOOD" : "POOR";
+  } else {
+    // Hard mode:
+    // (GOOD + GOLD) : (POOR + DEVIL) = 7 : 3
+    const total = HARD_GOODISH_WEIGHT + HARD_BAD_WEIGHT;
+    const r = Math.random() * total;
+    const goodish = (r < HARD_GOODISH_WEIGHT);
+    if (goodish) {
+      // 在 goodish 中，預設就是 GOOD
+      return "GOOD";
+    } else {
+      // bad side: POOR / DEVIL 各 1/2
+      return Math.random() < 0.5 ? "POOR" : "DEVIL";
+    }
+  }
 }
 
 function applyTargetVisual() {
@@ -174,7 +230,7 @@ function applyTargetVisual() {
       fallbackNum.classList.remove("hidden");
       fallbackNum.textContent = "+";
     }
-  } else {
+  } else if (currentType === "POOR") {
     if (poorOk) {
       targetImg.src = IMG_POOR;
       targetImg.classList.remove("hidden");
@@ -182,16 +238,36 @@ function applyTargetVisual() {
     } else {
       targetImg.classList.add("hidden");
       fallbackNum.classList.remove("hidden");
-      fallbackNum.textContent = "X";
+      fallbackNum.textContent = "-30";
+    }
+  } else if (currentType === "GOLD") {
+    if (goldOk) {
+      targetImg.src = IMG_GOLD;
+      targetImg.classList.remove("hidden");
+      fallbackNum.classList.add("hidden");
+    } else {
+      targetImg.classList.add("hidden");
+      fallbackNum.classList.remove("hidden");
+      fallbackNum.textContent = "+300";
+    }
+  } else if (currentType === "DEVIL") {
+    if (devilOk) {
+      targetImg.src = IMG_DEVIL;
+      targetImg.classList.remove("hidden");
+      fallbackNum.classList.add("hidden");
+    } else {
+      targetImg.classList.add("hidden");
+      fallbackNum.classList.remove("hidden");
+      fallbackNum.textContent = "-60";
     }
   }
 }
 
 function spawnNewTarget() {
-  currentType = pickTypeByWeight();
+  currentType = pickType();
   const { x, y } = randomPos();
   targetEl.style.left = `${x}px`;
-  targetEl.style.top = `${y}px`;
+  targetEl.style.top  = `${y}px`;
   applyTargetVisual();
 }
 
@@ -199,11 +275,27 @@ function updateHud() {
   if (scoreEl) scoreEl.textContent = `Score: ${score}`;
   if (timerEl) timerEl.textContent = `Time: ${formatCountdown(remainingSec)}`;
 
-  if (progressEl) {
+  if (!progressEl) return;
+
+  if (currentMode === "normal") {
     if (currentType === "GOOD") {
-      progressEl.textContent = "點元寶水豚加分";
+      progressEl.textContent = "普通：點元寶水豚加分（空白=跳過/斷Combo）";
+    } else if (currentType === "POOR") {
+      progressEl.textContent = "普通：避開空錢包水豚（點到會扣分；空白=跳過不斷Combo）";
     } else {
-      progressEl.textContent = "避開空錢包水豚";
+      // 理論上 normal 不會出現 GOLD/DEVIL，但以防萬一
+      progressEl.textContent = "普通模式";
+    }
+  } else {
+    // Hard mode
+    if (currentType === "GOOD") {
+      progressEl.textContent = "困難：點元寶水豚加分（空白=跳過/斷Combo）";
+    } else if (currentType === "POOR") {
+      progressEl.textContent = "困難：避開空錢包水豚（點到 -30；空白安全）";
+    } else if (currentType === "GOLD") {
+      progressEl.textContent = "黃金水豚！點中 +300（空白不扣分但 Combo 會斷）";
+    } else if (currentType === "DEVIL") {
+      progressEl.textContent = "惡魔水豚！點到 -60 且斷 Combo（空白安全）";
     }
   }
 }
@@ -225,7 +317,7 @@ function showFloatScore(text, clientX, clientY) {
   else el.style.color = "#333";
 
   el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
+  el.style.top  = `${y}px`;
 
   gameArea.appendChild(el);
   el.addEventListener("animationend", () => el.remove());
@@ -243,7 +335,7 @@ function playLowBeep() {
     }
     if (audioCtx.state === "suspended") audioCtx.resume();
 
-    const osc = audioCtx.createOscillator();
+    const osc  = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
     osc.frequency.value = 140;
@@ -286,10 +378,11 @@ function setUIStart() {
   resultScreen.classList.add("hidden");
   targetEl.classList.add("hidden");
 
-  score = 0;
+  score      = 0;
   comboCount = 0;
   remainingSec = GAME_DURATION_SEC;
   currentType = "GOOD";
+  pendingGold = false;
 
   setHurryMode(false);
   updateHud();
@@ -306,7 +399,8 @@ function setUIResult(finalScore) {
   resultScreen.classList.remove("hidden");
   targetEl.classList.add("hidden");
 
-  finalTimeEl.textContent = `瓜瓜可能會得到：${finalScore} 元`;
+  const modeText = currentMode === "hard" ? "【困難模式】" : "【普通模式】";
+  finalTimeEl.textContent = `${modeText} 瓜瓜可能會得到：${finalScore} 元`;
 
   rankListEl.innerHTML = "";
   rankings.forEach(s => {
@@ -323,7 +417,7 @@ function tick() {
   if (state !== "PLAYING") return;
 
   const elapsed = (performance.now() - startTimeMs) / 1000;
-  remainingSec = Math.max(0, GAME_DURATION_SEC - elapsed);
+  remainingSec  = Math.max(0, GAME_DURATION_SEC - elapsed);
 
   const shouldHurry = remainingSec > 0 && remainingSec <= 5.0;
   if (shouldHurry && !inHurry) setHurryMode(true);
@@ -348,7 +442,11 @@ function tick() {
   rafId = requestAnimationFrame(tick);
 }
 
-function startGame() {
+function startGame(mode) {
+  if (mode) {
+    currentMode = mode;  // "normal" or "hard"
+  }
+
   updateSquareSize();
 
   state = "PLAYING";
@@ -356,6 +454,7 @@ function startGame() {
   comboCount = 0;
   remainingSec = GAME_DURATION_SEC;
   currentType = "GOOD";
+  pendingGold = false;
 
   setHurryMode(false);
 
@@ -392,39 +491,78 @@ gameArea.addEventListener("pointerdown", (e) => {
 
   if (currentType === "GOOD") {
     if (hit) {
+      // GOOD 命中：Combo++，依 Combo 加分
       comboCount += 1;
-      const gain = getComboScore(comboCount);
+      const gain = getComboBaseScore(comboCount);
+      score += gain;
+      showFloatScore(`+${gain}`, e.clientX, e.clientY);
+
+      // 困難模式：Combo 達 5 次後，儲存一次黃金機會
+      if (currentMode === "hard" && comboCount >= 5) {
+        pendingGold = true;
+        comboCount = 0; // 清空 Combo，等待黃金水豚出現後再重新累積
+      }
+
+      spawnNewTarget();
+    } else {
+      // 點空白：跳過 GOOD，但 Combo 斷掉
+      comboCount = 0;
+      spawnNewTarget();
+    }
+  } else if (currentType === "POOR") {
+    if (hit) {
+      // 點到 POOR：扣分 + Combo 歸零
+      comboCount = 0;
+      score += SCORE_POOR_PENALTY_BASE;
+      showFloatScore(`${SCORE_POOR_PENALTY_BASE}`, e.clientX, e.clientY);
+      if (navigator.vibrate) navigator.vibrate(25);
+      spawnNewTarget();
+    } else {
+      // 點空白：安全跳過，Combo 保留
+      spawnNewTarget();
+    }
+  } else if (currentType === "GOLD") {
+    if (hit) {
+      // 黃金水豚：+300，不影響 Combo 累積（當作額外獎勵）
+      const gain = 300;
       score += gain;
       showFloatScore(`+${gain}`, e.clientX, e.clientY);
       spawnNewTarget();
     } else {
-      // blank click on GOOD => skip + break combo
+      // 按空白：不扣分，但 Combo 斷掉（黃金機會浪費）
       comboCount = 0;
       spawnNewTarget();
     }
-  } else { // POOR
+  } else if (currentType === "DEVIL") {
     if (hit) {
-      // hit POOR => -30 + break combo
+      // 惡魔水豚：重罰 -60，Combo 歸零
       comboCount = 0;
-      score += SCORE_POOR_PENALTY;
-      showFloatScore(`${SCORE_POOR_PENALTY}`, e.clientX, e.clientY);
-      if (navigator.vibrate) navigator.vibrate(25);
+      score += SCORE_DEVIL_PENALTY_BASE;
+      showFloatScore(`${SCORE_DEVIL_PENALTY_BASE}`, e.clientX, e.clientY);
+      if (navigator.vibrate) navigator.vibrate(40);
       spawnNewTarget();
     } else {
-      // blank click on POOR => skip, KEEP combo
+      // 點空白：安全跳過，Combo 保留
       spawnNewTarget();
     }
   }
 
-  score = Math.max(0, score);
+  if (score < 0) score = 0;
+
   updateHud();
 });
 
-btnStart.addEventListener("click", startGame);
-btnRetry.addEventListener("click", startGame);
+// Mode buttons
+btnStartNormal.addEventListener("click", () => startGame("normal"));
+btnStartHard.addEventListener("click",   () => startGame("hard"));
+
+// Retry: 保留上一場模式
+btnRetry.addEventListener("click", () => startGame());
+
+// Exit 回到選單
 btnExit.addEventListener("click", setUIStart);
 
-// ✅ Mobile fix: do NOT re-roll target on resize (avoid GOOD suddenly becomes POOR)
+// Mobile fix: do NOT re-roll target on resize
 window.addEventListener("resize", () => {
   updateSquareSize();
   if (state === "PLAYING") clampTargetPosition();
