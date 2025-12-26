@@ -24,10 +24,10 @@ const HARD_GOODISH_WEIGHT = 7;
 const HARD_BAD_WEIGHT = 3;
 
 // Ranking
-const RANK_KEY = "kapibara_score_attack_rankings_v_golddevil_v1";
+const RANK_KEY = "kapibara_score_attack_rankings_v_golddevil_v3";
 const RANK_KEEP_TOP = 10;
 
-// Images (case-sensitive on Netlify)
+// Images (⚠ 大小寫要跟 GitHub 上檔名一致)
 const IMG_GOOD  = "picture/KAPIBARA.png";
 const IMG_POOR  = "picture/KAPIBARA_poor.png";
 const IMG_GOLD  = "picture/GOLD_KAPIBARA.png";
@@ -74,6 +74,9 @@ let lastHurrySecond = -1;
 
 // hard-mode: golden ready flag
 let pendingGold = false;
+
+// 避免瞬間連續 spawn 的時間鎖 (ms)
+let lastSpawnTime = 0;
 
 // ----- Preload Images -----
 let goodOk  = false;
@@ -193,7 +196,6 @@ function clampTargetPosition() {
 function pickType() {
   // 如果有 pendingGold，下一個「好陣營」就一定是 GOLD
   if (currentMode === "hard" && pendingGold) {
-    // 直接強制 GOLD，不再抽比例
     pendingGold = false;
     return "GOLD";
   }
@@ -210,7 +212,6 @@ function pickType() {
     const r = Math.random() * total;
     const goodish = (r < HARD_GOODISH_WEIGHT);
     if (goodish) {
-      // 在 goodish 中，預設就是 GOOD
       return "GOOD";
     } else {
       // bad side: POOR / DEVIL 各 1/2
@@ -248,7 +249,7 @@ function applyTargetVisual() {
     } else {
       targetImg.classList.add("hidden");
       fallbackNum.classList.remove("hidden");
-      fallbackNum.textContent = "+300";
+      fallbackNum.textContent = "+500";
     }
   } else if (currentType === "DEVIL") {
     if (devilOk) {
@@ -263,7 +264,15 @@ function applyTargetVisual() {
   }
 }
 
+// ✅ 加入「冷卻時間」避免瞬間重複 spawn
 function spawnNewTarget() {
+  const now = performance.now();
+  if (now - lastSpawnTime < 80) {
+    // 太接近上一個刷新，不再重抽，避免畫面瞬間切換
+    return;
+  }
+  lastSpawnTime = now;
+
   currentType = pickType();
   const { x, y } = randomPos();
   targetEl.style.left = `${x}px`;
@@ -283,17 +292,15 @@ function updateHud() {
     } else if (currentType === "POOR") {
       progressEl.textContent = "普通：避開空錢包水豚（點到會扣分；空白=跳過不斷Combo）";
     } else {
-      // 理論上 normal 不會出現 GOLD/DEVIL，但以防萬一
       progressEl.textContent = "普通模式";
     }
   } else {
-    // Hard mode
     if (currentType === "GOOD") {
       progressEl.textContent = "困難：點元寶水豚加分（空白=跳過/斷Combo）";
     } else if (currentType === "POOR") {
       progressEl.textContent = "困難：避開空錢包水豚（點到 -30；空白安全）";
     } else if (currentType === "GOLD") {
-      progressEl.textContent = "黃金水豚！點中 +300（空白不扣分但 Combo 會斷）";
+      progressEl.textContent = "黃金水豚！點中 +500（空白不扣分但 Combo 會斷）";
     } else if (currentType === "DEVIL") {
       progressEl.textContent = "惡魔水豚！點到 -60 且斷 Combo（空白安全）";
     }
@@ -383,6 +390,7 @@ function setUIStart() {
   remainingSec = GAME_DURATION_SEC;
   currentType = "GOOD";
   pendingGold = false;
+  lastSpawnTime = 0;
 
   setHurryMode(false);
   updateHud();
@@ -455,6 +463,7 @@ function startGame(mode) {
   remainingSec = GAME_DURATION_SEC;
   currentType = "GOOD";
   pendingGold = false;
+  lastSpawnTime = 0;
 
   setHurryMode(false);
 
@@ -500,7 +509,7 @@ gameArea.addEventListener("pointerdown", (e) => {
       // 困難模式：Combo 達 5 次後，儲存一次黃金機會
       if (currentMode === "hard" && comboCount >= 5) {
         pendingGold = true;
-        comboCount = 0; // 清空 Combo，等待黃金水豚出現後再重新累積
+        comboCount = 0;
       }
 
       spawnNewTarget();
@@ -523,8 +532,8 @@ gameArea.addEventListener("pointerdown", (e) => {
     }
   } else if (currentType === "GOLD") {
     if (hit) {
-      // 黃金水豚：+300，不影響 Combo 累積（當作額外獎勵）
-      const gain = 300;
+      // 黃金水豚：+500，不影響 Combo 累積
+      const gain = 500;
       score += gain;
       showFloatScore(`+${gain}`, e.clientX, e.clientY);
       spawnNewTarget();
