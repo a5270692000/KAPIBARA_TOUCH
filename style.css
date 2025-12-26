@@ -277,8 +277,8 @@ body{
 }
 
 /* =========================
-   Mobile tweaks
-   ========================= */
+   Mobile tweaks (小螢幕寬度)
+// ========================= */
 @media (max-width:480px){
   .score{
     font-size:14px;
@@ -308,5 +308,28 @@ body{
   .btn{
     font-size:16px;
     padding:12px 20px;
+  }
+}
+
+/* =========================
+   Small height tweaks（重點修正：手機直立高度太矮）
+   ========================= */
+@media (max-height: 700px){
+  .overlay{
+    /* 不再垂直置中，改成從上往下排 */
+    justify-content:flex-start;
+    padding-top:12px;
+    gap:10px;
+    /* 內容太多時可以上下捲動 */
+    overflow-y:auto;
+  }
+
+  .game-desc-center{
+    max-height:60vh;
+    overflow-y:auto;
+  }
+
+  .final{
+    font-size:28px;
   }
 }
